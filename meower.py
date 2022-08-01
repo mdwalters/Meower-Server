@@ -11,6 +11,7 @@ class Meower:
         self.errorhandler = errorhandler
         self.accounts = accounts
         self.filesystem = files
+        self.db = files.db
         self.sendPacket = self.supporter.sendPacket
         result, self.supporter.filter = self.filesystem.load_item("config", "filter")
         if not result:
@@ -158,128 +159,141 @@ class Meower:
             else:
                 return False
     
+    def check_data(self, data, expected_type, length_max=0):
+        if (expected_type == None) and (data != None):
+            return True
+        elif type(data) != expected_type:
+            return True
+        elif (len(str(data)) > length_max) and (length_max != 0):
+            return True
+        else:
+            return False
+    
+    def check_exists(self, data, item):
+        if item in data:
+            return False
+        else:
+            return True
+
     def completeReport(self, _id, status):
         if status == None:
-            self.filesystem.delete_item("reports", _id)
-        else:
-            FileRead, FileData = self.filesystem.load_item("reports", _id)
-            if FileRead:
-                if status == True:
-                    for user in FileData["reports"]:
-                        self.createPost("inbox", user, "We took action on one of your recent reports. Thank you for your help with keeping Meower a safe and welcoming place!")
-                elif status == False:
-                    for user in FileData["reports"]:
-                        self.createPost("inbox", user, "Sadly, we could not take action on one of your recent reports. The content you reported was not severe enough to warrant action being taken. We still want to thank you for your help with keeping Meower a safe and welcoming place!")
-                self.filesystem.delete_item("reports", _id)
+            self.db["reports"].delete_one({"_id": _id})
+            return
+
+        filedata = self.db["reports"].find_one({"_id": _id})
+        if filedata is None:
+            return
+    
+        if status == True:
+            for user in FileData["reports"]:
+                self.createPost("inbox", user, "We took action on one of your recent reports. Thank you for your help with keeping Meower a safe and welcoming place!")
+        elif status == False:
+            for user in FileData["reports"]:
+                self.createPost("inbox", user, "Sadly, we could not take action on one of your recent reports. The content you reported was not severe enough to warrant action being taken. We still want to thank you for your help with keeping Meower a safe and welcoming place!")
+        self.db["reports"].delete_one({"_id": _id})
 
     def returnCode(self, client, code, listener_detected, listener_id):
-        self.sendPacket({"cmd": "statuscode", "val": self.cl.codes[str(code)], "id": client}, listener_detected = listener_detected, listener_id = listener_id)
+        return self.sendPacket({"cmd": "statuscode", "val": self.cl.codes[str(code)], "id": client}, listener_detected = listener_detected, listener_id = listener_id)
     
     # Networking/client utilities
     
-    def ping(self, client, listener_detected, listener_id):
+    def ping(self, client, val, listener_detected, listener_id):
         # Returns your ping for my pong
-        self.returnCode(client = client, code = "Pong", listener_detected = listener_detected, listener_id = listener_id)
+        return self.returnCode(client = client, code = "Pong", listener_detected = listener_detected, listener_id = listener_id)
     
     def version_chk(self, client, val, listener_detected, listener_id):
-        if type(val) == str:
-            # Load the supported versions list
-            result, payload = self.filesystem.load_item("config", "supported_versions")
-            if result:
-                if val in payload["index"]:
-                    # If the client version string exists in the list, it is supported
-                    self.returnCode(client = client, code = "OK", listener_detected = listener_detected, listener_id = listener_id)
-                else:
-                    # Either unsupported or out of date
-                    self.returnCode(client = client, code = "ObsoleteClient", listener_detected = listener_detected, listener_id = listener_id)
+        if self.check_data(val, str, 20):
+            return self.returnCode(client = client, code = "Syntax", listener_detected = listener_detected, listener_id = listener_id)
+        
+        # Load the supported versions list
+        result = self.db["config"].find_one({"supported_versions": {"$all": val}})
+        if result is not None:
+            # If the client version string exists in the list, it is supported
+            return self.returnCode(client = client, code = "OK", listener_detected = listener_detected, listener_id = listener_id)
         else:
-            # Bad datatype
-            self.returnCode(client = client, code = "Datatype", listener_detected = listener_detected, listener_id = listener_id)
+            # Client is obsolete/outdated
+            return self.returnCode(client = client, code = "ObsoleteClient", listener_detected = listener_detected, listener_id = listener_id)
     
     def get_ulist(self, client, listener_detected, listener_id):
-        self.sendPacket({"cmd": "ulist", "val": self.cl._get_ulist(), "id": client})
+        return self.sendPacket({"cmd": "ulist", "val": self.cl._get_ulist(), "id": client})
 
     # Accounts and security
     
     def authpswd(self, client, val, listener_detected, listener_id):
-        # Check if the client is already authenticated
-        if not self.supporter.isAuthenticated(client):
-            if type(val) == dict:
-                if ("username" in val) and ("pswd" in val):
-                    
-                    # Extract username and password for simplicity
-                    username = val["username"]
-                    password = val["pswd"]
-                    
-                    if ((type(username) == str) and (type(password) == str)):
-                        if not self.supporter.checkForBadCharsUsername(username):
-                            if not self.supporter.checkForBadCharsPost(password):
-                                FileCheck, FileRead, ValidAuth, Banned = self.accounts.authenticate(username, password)
-                                if FileCheck and FileRead:
-                                    if ValidAuth:
-                                        self.supporter.kickUser(username, status="IDConflict") # Kick bad clients missusing the username
-                                        self.filesystem.create_item("netlog", str(self.cl.statedata["ulist"]["objs"][client["id"]]["ip"]), {"users": [], "last_user": username})
-                                        status, netlog = self.filesystem.load_item("netlog", str(self.cl.statedata["ulist"]["objs"][client["id"]]["ip"]))
-                                        if status:
-                                            if not username in netlog["users"]:
-                                                netlog["users"].append(username)
-                                            netlog["last_user"] = username
-                                            self.filesystem.write_item("netlog", str(self.cl.statedata["ulist"]["objs"][client["id"]]["ip"]), netlog)
-                                            FileCheck, FileRead, accountData = self.accounts.get_account(username, False, False)
-                                            token = secrets.token_urlsafe(64)
-                                            accountData["tokens"].append(token)
-                                            self.accounts.update_setting(username, {"last_ip": str(self.cl.statedata["ulist"]["objs"][client["id"]]["ip"]), "tokens": accountData["tokens"]}, forceUpdate=True)
-                                            self.supporter.autoID(client, username) # Give the client an AutoID
-                                            self.supporter.setAuthenticatedState(client, True) # Make the server know that the client is authed
-                                            # Return info to sender
-                                            payload = {
-                                                "mode": "auth",
-                                                "payload": {
-                                                    "username": username,
-                                                    "token": token
-                                                }
-                                            }
-                                            self.sendPacket({"cmd": "direct", "val": payload, "id": client}, listener_detected = listener_detected, listener_id = listener_id)
-                                            
-                                            # Tell the client it is authenticated
-                                            self.returnCode(client = client, code = "OK", listener_detected = listener_detected, listener_id = listener_id)
-                                            
-                                            # Log peak users
-                                            self.supporter.log_peak_users()
-                                        else:
-                                            self.returnCode(client = client, code = "Internal", listener_detected = listener_detected, listener_id = listener_id)
-                                    else:
-                                        if Banned:
-                                            # Account banned
-                                            self.returnCode(client = client, code = "Banned", listener_detected = listener_detected, listener_id = listener_id)
-                                        else:
-                                            # Password invalid
-                                            self.returnCode(client = client, code = "PasswordInvalid", listener_detected = listener_detected, listener_id = listener_id)
-                                else:
-                                    if ((not FileCheck) and FileRead):
-                                        # Account does not exist
-                                        self.returnCode(client = client, code = "IDNotFound", listener_detected = listener_detected, listener_id = listener_id)
-                                    else:
-                                        # Some other error, raise an internal error.
-                                        self.returnCode(client = client, code = "InternalServerError", listener_detected = listener_detected, listener_id = listener_id)
-                            else:
-                                # Bad characters being used
-                                self.returnCode(client = client, code = "IllegalChars", listener_detected = listener_detected, listener_id = listener_id)
-                        else:
-                            # Bad characters being used
-                            self.returnCode(client = client, code = "IllegalChars", listener_detected = listener_detected, listener_id = listener_id)
-                    else:
-                        # Bad datatype
-                        self.returnCode(client = client, code = "Datatype", listener_detected = listener_detected, listener_id = listener_id)
-                else:
-                    # Bad syntax
-                    self.returnCode(client = client, code = "Syntax", listener_detected = listener_detected, listener_id = listener_id)
-            else:
-                # Bad datatype
-                self.returnCode(client = client, code = "Datatype", listener_detected = listener_detected, listener_id = listener_id)
-        else:
+        if self.supporter.isAuthenticated(client):
             # Already authenticated
-            self.returnCode(client = client, code = "OK", listener_detected = listener_detected, listener_id = listener_id)
+            return self.returnCode(client = client, code = "OK", listener_detected = listener_detected, listener_id = listener_id)
+
+        if self.check_data(val, dict, 120):
+            # Datatype or too long
+            return self.returnCode(client = client, code = "Datatype", listener_detected = listener_detected, listener_id = listener_id)
+        elif (self.check_exists(val, "username")) and (self.check_exists(val, "pswd")):
+            # Syntax error
+            return self.returnCode(client = client, code = "Syntax", listener_detected = listener_detected, listener_id = listener_id)
+        elif (self.check_data(val["username"], str, 20)) and (self.check_data(val["pswd"], str, 64)):
+            # Datatype or too long
+            return self.returnCode(client = client, code = "Datatype", listener_detected = listener_detected, listener_id = listener_id)
+        elif not (self.supporter.checkForBadCharsUsername(val["username"]) and self.supporter.checkForBadCharsPost(val["pswd"])):
+            # Bad characters being used
+            return self.returnCode(client = client, code = "IllegalChars", listener_detected = listener_detected, listener_id = listener_id)
+
+        # Extract username and password for simplicity
+        username = val["username"]
+        password = val["pswd"]
+        ip = str(self.cl.statedata["ulist"]["objs"][client["id"]]["ip"])
+
+        userdata = self.db["usersv0"].find_one({"_id": username})
+        if userdata is None:
+            # Account does not exist
+            return self.returnCode(client = client, code = "IDNotFound", listener_detected = listener_detected, listener_id = listener_id)
+        elif not ((password in userdata["tokens"]) or bcrypt.checkpw(bytes(userdata["username"], "utf-8"), bytes(userdata["pswd"], "utf-8"))):
+            # Some other error, raise an internal error.
+            return self.returnCode(client = client, code = "PasswordInvalid", listener_detected = listener_detected, listener_id = listener_id)
+        elif userdata["banned"]:
+            # Account banned
+            return self.returnCode(client = client, code = "Banned", listener_detected = listener_detected, listener_id = listener_id)
+        
+        # Kick clients that are currently logged in
+        self.supporter.kickUser(username, status="IDConflict")
+
+        # Update netlog
+        netlog = self.db["netlog"].find_one({"_id": ip})
+        if netlog is None:
+            self.db["netlog"].insert_one({"_id": ip, "users": [client], "last_user": client})
+        else:
+            if not username in netlog["users"]:
+                netlog["users"].append(username)
+                self.db["netlog"].update_one({"_id": ip}, {"$set": {"users": netlog["users"], "last_user": netlog["last_user"]}})
+
+        # Remove token if token was used
+        if password in userdata["tokens"]:
+            userdata["tokens"].remove(password)
+
+        # Add new token
+        userdata["tokens"].append(secrets.token_urlsafe(64))
+
+        # Update userdata
+        self.db["usersv0"].update_one({"_id": username}, {"tokens": userdata["tokens"], "last_ip": ip})
+
+        # Authenticate user
+        self.supporter.autoID(client, username)
+        self.supporter.setAuthenticatedState(client, True)
+
+        # Return info to sender
+        payload = {
+            "mode": "auth",
+            "payload": {
+                "username": username,
+                "token": token
+            }
+        }
+        self.sendPacket({"cmd": "direct", "val": payload, "id": client}, listener_detected = listener_detected, listener_id = listener_id)
+        
+        # Tell the client it is authenticated
+        self.returnCode(client = client, code = "OK", listener_detected = listener_detected, listener_id = listener_id)
+        
+        # Log peak users
+        self.supporter.log_peak_users()
     
     def gen_account(self, client, val, listener_detected, listener_id):
         # Check if the client is already authenticated
