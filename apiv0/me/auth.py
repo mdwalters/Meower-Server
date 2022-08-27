@@ -100,7 +100,6 @@ def login_device():
 
 @bp.route("/reset/password/<username>", methods=["POST"])
 def reset_password(username):
-    return meower.send_email("confirmations/reset_password", "tnix@meower.org", username, "Reset your password", {"username": username, "link": "https://meower.org/email?token={0}".format(meower.gen_jwt_standalone({"t": "reset_pswd", "u": username}, 600000)), "expiration": "10 minutes"})
     # Get user data
     user = meower.get_user(username=username, abort_on_fail=True)
 
