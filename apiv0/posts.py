@@ -107,7 +107,7 @@ def get_post_comments(post_id):
         meower.require_auth([5], scope="meower:posts:create_posts")
 
         # Check for required data
-        meower.check_for_json([{"id": "p", "t": str, "l_min": 1, "l_max": 360}])
+        meower.check_for_json([{"i": "p", "t": str, "l_min": 1, "l_max": 360}])
     
         # Extract content for simplicity
         content = request.json["p"]
@@ -125,7 +125,7 @@ def get_post_comments(post_id):
             "parent": post_id,
             "u": request.user._id,
             "p": content,
-            "t": int(time.time()),
+            "t": int(meower.time()),
             "isDeleted": False
         }
         meower.db.posts.insert_one(post_data)
@@ -144,7 +144,7 @@ def report_post(post_id):
     meower.require_auth([5], scope="meower:posts:edit_posts")
 
     # Check for required data
-    meower.check_for_json([{"id": "comment", "t": str, "l_min": 1, "l_max": 360}])
+    meower.check_for_json([{"i": "comment", "t": str, "l_min": 1, "l_max": 360}])
 
     # Get post
     post = meower.db.posts.find_one({"_id": post_id, "isDeleted": False})
@@ -159,15 +159,15 @@ def report_post(post_id):
             "type": 1,
             "users": [request.user._id],
             "ips": [request.remote_addr],
-            "comments": [{"u": request.user._id, "t": int(time.time()), "p": request.json["comment"]}],
-            "t": int(time.time()),
+            "comments": [{"u": request.user._id, "t": int(meower.time()), "p": request.json["comment"]}],
+            "t": int(meower.time()),
             "review_status": 0,
             "auto_censored": False
         }
         meower.db.reports.insert_one(report_status)
     elif request.user._id not in report_status["users"]:
         report_status["users"].append(request.user._id)
-        report_status["comments"].append({"u": request.user._id, "t": int(time.time()), "p": request.json["comment"]})
+        report_status["comments"].append({"u": request.user._id, "t": int(meower.time()), "p": request.json["comment"]})
         if (request.remote_addr not in report_status["ips"]) and (request.user.state >= 1):
             report_status["ips"].append(request.remote_addr)
             if (len(report_status["ips"]) > 3) and (report_status["review_status"] == 0):

@@ -41,7 +41,7 @@ def my_chats():
         meower.require_auth([5], scope="meower:chats:edit")
 
         # Check for required data
-        meower.check_for_json([{"id": "nickname", "t": str, "l_min": 1, "l_max": 20}])
+        meower.check_for_json([{"i": "nickname", "t": str, "l_min": 1, "l_max": 20}])
 
         # Create chat
         chat_data = {
@@ -154,7 +154,7 @@ def add_member(chat_id):
     meower.require_auth([5], scope="meower:chats:access")
 
     # Check for required data
-    meower.check_for_json([{"id": "username", "t": str, "l_min": 1, "l_max": 20}])
+    meower.check_for_json([{"i": "username", "t": str, "l_min": 1, "l_max": 20}])
 
     # Get chat data
     chat_data = meower.db.chats.find_one({"_id": chat_id, "deleted": False})
@@ -195,7 +195,7 @@ def add_member(chat_id):
         meower.require_auth([5], scope="meower:chats:edit")
 
         # Check for required data
-        meower.check_for_json([{"id": "level", "t": int, "r_min": 1, "r_max": 2}])
+        meower.check_for_json([{"i": "level", "t": int, "r_min": 1, "r_max": 2}])
 
         # Check if user is in chat
         if user._id not in chat_data["members"]:
@@ -286,7 +286,7 @@ def chat_posts(chat_id):
         meower.require_auth([5], scope="meower:posts:create_posts")
 
         # Check for required data
-        meower.check_for_json([{"id": "p", "t": str, "l_min": 1, "l_max": 360}])
+        meower.check_for_json([{"i": "p", "t": str, "l_min": 1, "l_max": 360}])
     
         # Extract content for simplicity
         content = request.json["p"]
@@ -304,7 +304,7 @@ def chat_posts(chat_id):
             "parent": None,
             "u": request.user._id,
             "p": content,
-            "t": int(time.time()),
+            "t": int(meower.time()),
             "isDeleted": False
         }
         meower.db.posts.insert_one(post_data)

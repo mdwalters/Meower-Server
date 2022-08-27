@@ -48,7 +48,7 @@ def get_home():
         meower.require_auth([5], scope="meower:posts:create_posts")
 
         # Check for required data
-        meower.check_for_json([{"id": "p", "t": str, "l_min": 1, "l_max": 360}])
+        meower.check_for_json([{"i": "p", "t": str, "l_min": 1, "l_max": 360}])
     
         # Extract content for simplicity
         content = request.json["p"]
@@ -66,7 +66,7 @@ def get_home():
             "parent": None,
             "u": request.user._id,
             "p": content,
-            "t": int(time.time()),
+            "t": int(meower.time()),
             "isDeleted": False
         }
         meower.db.posts.insert_one(post_data)

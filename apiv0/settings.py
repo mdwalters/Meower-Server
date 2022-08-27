@@ -59,12 +59,12 @@ def email_address():
         meower.require_auth([5], scope="foundation:settings:authentication")
 
         # Check for required data
-        meower.check_for_json([{"id": "email", "t": str, "l_min": 5, "l_max": 100}])
+        meower.check_for_json([{"i": "email", "t": str, "l_min": 5, "l_max": 100}])
 
         # Check if TOTP is required and if it is valid
         if userdata["security"]["totp"] is not None:
             # Check for required data
-            meower.check_for_json({"id": "totp", "t": str, "l_min": 6, "l_max": 6})
+            meower.check_for_json({"i": "totp", "t": str, "l_min": 6, "l_max": 6})
 
             # Check if it's valid
             if not (pyotp.TOTP(userdata["security"]["totp"]["secret"]).verify(request.json["totp"]) or (request.json["totp"] in userdata["security"]["totp"]["recovery_codes"])):
@@ -99,12 +99,12 @@ def password():
         return meower.resp(200, {"password": (userdata["security"]["password"] is not None)})
     elif request.method == "PATCH":
         # Check for required data
-        meower.check_for_json([{"id": "password", "t": str, "l_min": 0, "l_max": 256}])
+        meower.check_for_json([{"i": "password", "t": str, "l_min": 0, "l_max": 256}])
 
         # Check if TOTP is required and if it is valid
         if userdata["security"]["totp"] is not None:
             # Check for required data
-            meower.check_for_json({"id": "totp", "t": str, "l_min": 6, "l_max": 6})
+            meower.check_for_json({"i": "totp", "t": str, "l_min": 6, "l_max": 6})
 
             # Check if it's valid
             if not (pyotp.TOTP(userdata["security"]["totp"]["secret"]).verify(request.json["totp"]) or (request.json["totp"] in userdata["security"]["totp"]["recovery_codes"])):
@@ -139,12 +139,12 @@ def password():
             return meower.resp({"type": "noAuthenticationMethods"}, 400, error=True)
 
         # Check for required data
-        meower.check_for_json([{"id": "password", "t": str, "l_min": 0, "l_max": 256}])
+        meower.check_for_json([{"i": "password", "t": str, "l_min": 0, "l_max": 256}])
 
         # Check if TOTP is required and if it is valid
         if userdata["security"]["totp"] is not None:
             # Check for required data
-            meower.check_for_json({"id": "totp", "t": str, "l_min": 6, "l_max": 6})
+            meower.check_for_json({"i": "totp", "t": str, "l_min": 6, "l_max": 6})
 
             # Check if it's valid
             if not (pyotp.TOTP(userdata["security"]["totp"]["secret"]).verify(request.json["totp"]) or (request.json["totp"] in userdata["security"]["totp"]["recovery_codes"])):
@@ -186,7 +186,7 @@ def totp():
             return meower.resp({"type": "totpAlreadyEnabled", "message": "TOTP is already enabled"}, 400, error=True)
 
         # Check for required data
-        meower.check_for_json([{"id": "secret", "t": str, "l_min": 16, "l_max": 16}, {"id": "totp", "t": str, "l_min": 6, "l_max": 6}])
+        meower.check_for_json([{"i": "secret", "t": str, "l_min": 16, "l_max": 16}, {"i": "totp", "t": str, "l_min": 6, "l_max": 6}])
 
         # Extract secret and code for simplicity
         secret = request.json["secret"].strip()
@@ -216,12 +216,12 @@ def totp():
         return meower.resp(200, {"recovery_codes": recovery_codes})
     elif request.method == "DELETE":
         # Check for required data
-        meower.check_for_json({"id": "totp", "t": str, "l_min": 6, "l_max": 6})
+        meower.check_for_json({"i": "totp", "t": str, "l_min": 6, "l_max": 6})
 
         # Check if TOTP is required and if it is valid
         if userdata["security"]["totp"] is not None:
             # Check for required data
-            meower.check_for_json({"id": "totp", "t": str, "l_min": 6, "l_max": 6})
+            meower.check_for_json({"i": "totp", "t": str, "l_min": 6, "l_max": 6})
 
             # Check if it's valid
             if not (pyotp.TOTP(userdata["security"]["totp"]["secret"]).verify(request.json["totp"]) or (request.json["totp"] in userdata["security"]["totp"]["recovery_codes"])):
@@ -382,7 +382,7 @@ def blocked_users():
         return meower.resp(200, {"blocked": payload_blocked})
     elif request.method == "PUT":
         # Check for required data
-        meower.check_for_json([{"id": "username", "t": str, "l_min": 1, "l_max": 20}])
+        meower.check_for_json([{"i": "username", "t": str, "l_min": 1, "l_max": 20}])
 
         # Make sure user exists
         blocked_user = meower.User(meower, username=request.json["username"])
@@ -398,7 +398,7 @@ def blocked_users():
         return meower.resp("empty")
     elif request.method == "DELETE":
         # Check for required data
-        meower.check_for_json([{"id": "username", "t": str, "l_min": 1, "l_max": 20}])
+        meower.check_for_json([{"i": "username", "t": str, "l_min": 1, "l_max": 20}])
 
         # Make sure user exists
         blocked_user = meower.User(meower, username=request.json["username"])

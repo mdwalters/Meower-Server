@@ -1,0 +1,50 @@
+[
+    {
+        "module": "apiv0.respond",
+        "prefix": null,
+        "classes": ["Respond"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.utils.supporter",
+        "prefix": null,
+        "classes": ["Supporter"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.utils.database",
+        "prefix": null,
+        "classes": ["Database"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.utils.security",
+        "prefix": null,
+        "classes": ["Security"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.utils.checks",
+        "prefix": null,
+        "classes": ["Checks"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.utils.users",
+        "prefix": null,
+        "classes": ["Users"],
+        "templates": ["User"]
+    },
+    {
+        "module": "apiv0.utils.sessions",
+        "prefix": null,
+        "classes": ["Sessions"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.me.auth",
+        "prefix": "/v0/me",
+        "classes": [],
+        "templates": []
+    }
+]

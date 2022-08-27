@@ -7,20 +7,16 @@ users = Blueprint("users_blueprint", __name__)
 
 @users.route("/<username>", methods=["GET"])
 def get_profile(username):
-    # Get user data
-    user = meower.User(meower, username=username)
-    if user.raw is None:
-        return meower.resp(404)
-
-    # Return profile
-    return meower.resp(200, user.profile)
+    return meower.resp(100, meower.get_user(username=username, abort_on_fail=True).public())
 
 @users.route("/<username>/posts", methods=["GET"])
 def search_user_posts(username):
     # Get user data
-    userdata = meower.db.users.find_one({"lower_username": username.lower()})
-    if userdata is None:
-        return meower.resp(404)
+    user = meower.get_user(username=username, abort_on_fail=True)
+
+    # Check if requesting user can view this user's posts
+    if user.data["privacy"]["private"] and ((request.user is None) or (user.id not in request.user.data["relations"]["following"])):
+        return meower.resp(105, msg="You do not have permission to view this user's posts")
 
     # Get page
     if not ("page" in request.args):
@@ -28,34 +24,20 @@ def search_user_posts(username):
     else:
         page = int(request.args["page"])
 
-    # Get index
-    query_get = meower.db.posts.find({"post_origin": "home", "u": userdata["_id"], "isDeleted": False}).skip((page-1)*25).limit(25).sort("t", pymongo.DESCENDING)
-    pages_amount = (meower.db.posts.count_documents({"post_origin": "home", "u": userdata["_id"], "isDeleted": False}) // 25) + 1
+    # Get posts
+    posts = list(meower.db.posts.find({"user": user.id, "deleted": False}).skip((page-1)*25).limit(25).sort("time", pymongo.DESCENDING))
 
-    # Convert query get
-    payload_posts = []
-    for post in query_get:
-        user = meower.User(meower, user_id=post["u"])
-        if user.raw is None:
-            continue
-        else:
-            post["u"] = user.profile
-        payload_posts.append(post)
-
-    # Create payload
-    payload = {
-        "posts": list(payload_posts),
-        "page#": int(page),
-        "pages": int(pages_amount)
-    }
+    # Convert user objects
+    for i in range(len(posts)):
+        posts[i]["user"] = user.public()
 
     # Return payload
-    return meower.resp(200, payload)
+    return meower.resp(100, {"posts": posts})
 
 @users.route("/<username>/report", methods=["POST"])
 def report_user(username):
     # Check for required data
-    meower.check_for_json([{"id": "comment", "t": str, "l_min": 1, "l_max": 360}])
+    meower.check_for_json([{"i": "comment", "t": str, "l_min": 1, "l_max": 360}])
 
     # Get user data
     userdata = meower.db.users.find_one({"lower_username": username.lower()})
@@ -71,16 +53,16 @@ def report_user(username):
             "users": [],
             "ips": [],
             "comments": [],
-            "t": int(time.time()),
+            "t": int(meower.time()),
             "review_status": 0
         }
         report_status["users"].append(request.user._id)
-        report_status["comments"].append({"u": request.user._id, "t": int(time.time()), "p": request.json["comment"]})
+        report_status["comments"].append({"u": request.user._id, "t": int(meower.time()), "p": request.json["comment"]})
         report_status["ips"].append(request.remote_addr)
         meower.db.reports.insert_one(report_status)
     elif request.user._id not in report_status["users"]:
         report_status["users"].append(request.user._id)
-        report_status["comments"].append({"u": request.user._id, "t": int(time.time()), "p": request.json["comment"]})
+        report_status["comments"].append({"u": request.user._id, "t": int(meower.time()), "p": request.json["comment"]})
         if (request.remote_addr not in report_status["ips"]) and (request.user.state >= 1):
             report_status["ips"].append(request.remote_addr)
         meower.db.reports.find_one_and_replace({"_id": userdata["_id"]}, report_status)

@@ -10,4 +10,3 @@ pycryptodome
 passlib
 python-dotenv
 serial
-geocoder
