@@ -46,5 +46,11 @@
         "prefix": "/v0/me",
         "classes": [],
         "templates": []
+    },
+    {
+        "module": "apiv0.oauth2.authorize",
+        "prefix": "/v0/oauth2/authorize",
+        "classes": [],
+        "templates": []
     }
 ]

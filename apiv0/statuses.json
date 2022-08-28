@@ -2,6 +2,8 @@
     "0": {"msg": "", "http": 204, "cl": "I:100 | OK"},
     "11": {"msg": "Invalid credentials", "http": 401, "cl": "I:011 | Invalid Password"},
     "15": {"msg": "Username already taken", "http": 409, "cl": "I:015 | Account exists"},
+    "16": {"msg": "2FA/TOTP Required", "http": 401, "cl": "I:016 | 2FA Required"},
+    "18": {"msg": "Your account is currently suspended", "http": 403, "cl": "E:018 | Account Banned"},
     "100": {"msg": "OK", "http": 200, "cl": "I:100 | OK"},
     "101": {"msg": "Syntax", "http": 400, "cl": "E:101 | Syntax"},
     "102": {"msg": "Incorrect datatype", "http": 400, "cl": "E:102 | Datatype"},

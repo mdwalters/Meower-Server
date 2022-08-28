@@ -127,7 +127,7 @@ class Security:
 
         # Check if user is currently ratelimited
         if self.ratelimits[type][client] > self.meower.time():
-            return self.resp(106, {"expires": self.ratelimits[type][client]}, abort=True)
+            return self.meower.resp(106, {"expires": self.ratelimits[type][client]}, abort=True)
 
     def check_captcha(self, captcha):
         # Check if captcha is valid

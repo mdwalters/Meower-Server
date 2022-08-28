@@ -2,10 +2,34 @@ from flask import Blueprint, request
 from flask import current_app as meower
 from passlib.hash import bcrypt
 import pyotp
-import secrets
-import string
 
 bp = Blueprint("foundation_auth", __name__)
+
+def gen_session(userid):
+    # Create session UID and get current time
+    session_id = meower.uid()
+    cur_time = meower.time()
+
+    # Add session data to database
+    session_data = {
+        "_id": session_id,
+        "t": "foundation",
+        "v": 1,
+        "u": userid,
+        "ip": request.remote_addr,
+        "ua": request.headers.get("User-Agent"),
+        "app": None,
+        "scopes": None,
+        "access_expires": (cur_time + 259200000),
+        "refresh_expires": (cur_time + 7776000000)
+    }
+    meower.db.sessions.insert_one(session_data)
+
+    # Create and sign JWT token
+    access_token, refresh_token = meower.gen_jwt_session(session_id, "foundation", 1)
+
+    # Return signed JWT token
+    return access_token, refresh_token, session_data["access_expires"], session_data["refresh_expires"]
 
 @bp.route("/register", methods=["POST"])
 def create_account():
@@ -14,7 +38,7 @@ def create_account():
         return meower.resp(119, msg="Account creation is blocked on your IP")
 
     # Check for required data
-    meower.check_for_json([{"i": "username", "t": str, "l_min": 1, "l_max": 20}, {"i": "password", "t": str, "l_max": 256}, {"i": "child", "t": bool}, {"i": "captcha", "t": str, "l_min": 1, "l_max": 1024}])
+    meower.check_for_json([{"i": "username", "t": str, "l_min": 1, "l_max": 20}, {"i": "password", "t": str, "l_max": 255}, {"i": "child", "t": bool}, {"i": "captcha", "t": str, "l_min": 1, "l_max": 1024}])
 
     # Extract username and password for simplicity
     username = request.json["username"].strip()
@@ -31,12 +55,15 @@ def create_account():
         #return meower.resp(403, msg="Invalid captcha")
 
     # Create user
-    userdata = meower.create_user(username, password, child=child)
+    userdata = meower, meower.create_user(username, password, child=child)
     if userdata is None:
         return meower.resp(15) # Username already exists
 
+    # Create session
+    access_token, refresh_token, access_expires, refresh_expires = gen_session(userdata["_id"])
+
     # Return session
-    return meower.resp(100)
+    return meower.resp(100, {"access_token": access_token, "refresh_token": refresh_token, "access_expires": access_expires, "refresh_expires": refresh_expires})
 
 @bp.route("/login/<username>", methods=["GET"])
 def login_begin(username):
@@ -44,16 +71,16 @@ def login_begin(username):
 
 @bp.route("/login/<username>/password", methods=["POST"])
 def login_password(username):
-    # Get user data
-    userdata = meower.get_user(username=username, abort_on_fail=True).data
+    # Get user
+    user = meower.get_user(username=username, abort_on_fail=True)
 
     # Get password
-    stored_pswd = userdata["security"]["password"]
+    stored_pswd = user.data["security"]["password"]
     meower.check_for_json([{"i": "password", "t": str, "l_min": 1, "l_max": 128}])
     password = request.json["password"].strip()
 
     # Check if user has had too many failed attempts
-    meower.check_ratelimit("password", userdata["_id"])
+    meower.check_ratelimit("password", user.id)
 
     # Check if password is correct
     if stored_pswd is None:
@@ -61,42 +88,64 @@ def login_password(username):
         return meower.resp(11, msg="Incorrect password")
     else:
         # Verify bcrypt password
-        if not bcrypt.verify(password, stored_pswd["hash"]):
-            meower.ratelimit("password", userdata["_id"], burst=5, seconds=60)
+        if not bcrypt.verify(password, stored_pswd):
+            meower.ratelimit("password", user.id, burst=5, seconds=60)
             return meower.resp(11, msg="Incorrect password")
 
     # Check TOTP 2FA
-    if userdata["security"]["totp"] is not None:
-        meower.check_for_json([{"i": "totp", "t": str, "l_min": 6, "l_max": 10}])
+    if user.data["security"]["totp"] is not None:
+        # Generate token
+        token = meower.gen_jwt_standalone("totp", user.id, {}, 300000)
 
-        # Check if user has had too many failed attempts
-        meower.check_ratelimit("totp", userdata["_id"])
+        # Return token
+        return meower.resp(16, {"access_token": token, "refresh_token": None, "access_expires": (meower.time() + 300000), "refresh_expires": None}, force_success=True)
+    else:
+        # Create session
+        access_token, refresh_token, access_expires, refresh_expires = gen_session(user.id)
 
-        totp_code = request.json["totp"].replace("-", "")
-        if (not pyotp.TOTP(userdata["security"]["totp"]["secret"]).verify(totp_code)) and (totp_code not in userdata["security"]["totp"]["recovery"]):
-            meower.ratelimit("totp", userdata["_id"], burst=5, seconds=60)
-            return meower.resp(401, msg="Invalid TOTP")
-        elif totp_code in userdata["security"]["totp"]["recovery"]:
-            userdata["security"]["totp"]["recovery"].remove(totp_code)
-            meower.db.users.update_one({"_id": userdata["_id"]}, {"$set": {"security.totp.recovery": userdata["security"]["totp"]["recovery"]}})
+        # Return session
+        return meower.resp(100, {"access_token": access_token, "refresh_token": refresh_token, "access_expires": access_expires, "refresh_expires": refresh_expires})
 
-    # Return response
-    return meower.resp(200, meower.foundation_session(userdata["_id"], "your password"))
-
+""" Not implemented stuff
 @bp.route("/login/<username>/webauthn", methods=["POST"])
 def login_webauthn(username):
-    return meower.resp(501)
+    pass
+"""
 
-@bp.route("/login/device", methods=["GET"])
-def login_device():
-    # Check whether the client is authenticated
-    meower.require_auth([1])
+@bp.route("/verify/totp", methods=["POST"])
+def complete_totp():
+    # Check for auth
+    meower.require_auth("header", "totp", standalone=True, allow_bots=False, allow_banned=True, allow_unapproved=True)
 
-    # Delete session
-    request.session.delete()
+    # Get code
+    meower.check_for_json([{"i": "code", "t": str, "l_min": 1, "l_max": 8}])
+    code = request.json["code"].strip()
+    totp_config = request.user.data["security"]["totp"]
 
-    # Full account session
-    return meower.resp(200, meower.foundation_session(request.user._id, "another device"))
+    # Check if user has had too many failed attempts
+    meower.check_ratelimit("totp", request.user.id)
+
+    # Check if code is correct
+    if totp_config is None:
+        # TOTP is not enabled
+        return meower.resp(11, msg="Invalid code")
+    else:
+        # Verify TOTP code
+        if not (pyotp.TOTP(totp_config["secret"]).verify(code) or (code in totp_config["recovery"])):
+            meower.ratelimit("totp", request.user.id, burst=5, seconds=60)
+            return meower.resp(11, msg="Invalid code")
+        elif code in totp_config["recovery"]:
+            # Remove code from recovery codes
+            meower.db.users.update_one({"_id": request.user.id}, {"$pull": {"security.totp.recovery": code}})
+
+    # Block standalone JWT
+    meower.db.blocked_jwts.insert_one({"_id": request.session["uid"], "added_at": meower.time()})
+
+    # Create session
+    access_token, refresh_token, access_expires, refresh_expires = gen_session(request.user.id)
+
+    # Return session
+    return meower.resp(100, {"access_token": access_token, "refresh_token": refresh_token, "access_expires": access_expires, "refresh_expires": refresh_expires})
 
 @bp.route("/reset/password/<username>", methods=["POST"])
 def reset_password(username):
@@ -113,7 +162,7 @@ def reset_password(username):
         email = meower.decrypt(user.id, user.data["security"]["email"])
 
         # Generate token
-        token = meower.gen_jwt_standalone({"t": "reset_pswd", "u": user.id}, 600000)
+        token = meower.gen_jwt_standalone("reset_pswd", user.id, {}, 600000)
 
         # Send email
         meower.send_email(email, "confirmations/reset_password", {"username": user.data["username"], "subject": "Reset your password", "token": token})

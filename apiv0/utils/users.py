@@ -86,7 +86,7 @@ class Users:
             },
             "guardian": {
                 "child": child,
-                "parent_approved": False,
+                "approved": (child == False),
                 "linked_guardian": None,
                 "account_disabled": False,
                 "filter_level": 0,
@@ -134,8 +134,14 @@ class Users:
         else:
             return None
 
-    def send_email(self, template, email, username, subject, data):
+    def send_email(self, template, userid, subject, token=None):
+        # Get user
+        user = self.meower.get_user(userid=userid)
+
         # Render template
+        username = user.data["username"]
+        email = self.meower.decrypt(user.id, user.data["security"]["email"])
+        data = {"username": user.data["username"], "email": email, "token": token}
         with open("apiv0/email_templates/{0}.html".format(template), "r") as f:
             body = Template(f.read()).render(data)
 
@@ -254,7 +260,7 @@ class User:
         return {
             "id": self.data["_id"],
             "username": self.data["username"],
-            "bot": self.data["bot"],
+            "bot": (self.data["bot"] is not None),
             "created": self.data["created"],
             "permissions": self.data["permissions"],
             "profile": self.data["profile"],
@@ -267,7 +273,7 @@ class User:
         return {
             "id": self.data["_id"],
             "username": self.data["username"],
-            "bot": self.data["bot"],
+            "bot": (self.data["bot"] is not None),
             "banned": (self.data["permissions"]["ban_status"] is not None),
             "created": self.data["created"],
             "profile": {
@@ -286,7 +292,7 @@ class User:
         return {
             "id": self.data["_id"],
             "username": self.data["username"],
-            "bot": self.data["bot"],
+            "bot": (self.data["bot"] is not None),
             "created": self.data["created"],
             "pfp": self.data["profile"]["pfp"],
             "dark_mode": self.data["config"]["dark"],

@@ -17,7 +17,7 @@ class Respond:
         # Add functions to Meower class
         self.meower.resp = self.resp
 
-    def resp(self, code: int, data: dict=None, msg=None, abort=False):
+    def resp(self, code: int, data: dict=None, msg=None, abort=False, force_success=False):
         # Invalid response code
         if str(code) not in self.statuses:
             code = 104
@@ -26,12 +26,14 @@ class Respond:
         # Create response payload
         if data is None:
             data = {}
-        data["success"] = (code in self.success_codes)
+        data["success"] = (force_success or (code in self.success_codes))
         data["code"] = code
 
         # Add custom message if there is one
         if msg is not None:
             data["msg"] = msg
+        else:
+            data["msg"] = self.statuses[str(code)]["msg"]
 
         # Return response
         if abort:

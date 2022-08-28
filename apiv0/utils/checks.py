@@ -27,7 +27,6 @@ class Checks:
         self.meower.is_valid_email = self.is_valid_email
         self.meower.check_for_json = self.check_for_json
         self.meower.check_for_params = self.check_for_params
-        self.meower.require_auth = self.require_auth
 
     def check_username(self, username):
         # Check if username is blocked
@@ -72,9 +71,13 @@ class Checks:
         error = None
 
         for item in data:
+            # Run all checks specified
             if item["i"] not in self.request.json:
                 error = "missing"
-            elif ("t" in item) and (type(self.request.json[item["i"]]) is not item["t"]):
+            elif ("t" in item) and (type(self.request.json[item["i"]]) != item["t"]):
+                print(item)
+                print(type(self.request.json[item["i"]]))
+                print(item["t"])
                 error = "datatype"
             elif ("l_min" in item) and (len(str(self.request.json[item["i"]])) < item["l_min"]):
                 error = "tooShort"
@@ -85,39 +88,14 @@ class Checks:
             elif (("r_max") in item) and (self.request.json[item["i"]] > item["r_max"]):
                 error = "tooSmall"
 
-        if error is not None:
-            if error == "datatype":
-                return self.meower.resp(102, {item["i"]: error}, msg="Invalid body field", abort=True)
-            else:
-                return self.meower.resp(101, {item["i"]: error}, msg="Invalid body field", abort=True)
+            # Return if any errors
+            if error is not None:
+                if error == "datatype":
+                    return self.meower.resp(102, {item["i"]: error}, msg="Invalid body field", abort=True)
+                else:
+                    return self.meower.resp(101, {item["i"]: error}, msg="Invalid body field", abort=True)
 
     def check_for_params(self, data=[]):
         for item in data:
             if item not in self.request.args:
                 return self.meower.resp(101, {item["i"]: "missing"}, msg="Missing request argument", abort=True)
-
-    def require_auth(self, allowed_types, levels=[-1, 0, 1, 2, 3], scope=None):
-        if self.request.method != "OPTIONS":
-            # Check if session is valid
-            if not self.request.session.authed:
-                return self.meower.resp(401)
-            
-            # Check session type
-            if self.request.session.type not in allowed_types:
-                return self.meower.resp(403)
-            
-            # Check session scopes
-            if (self.request.session.type == 5) and (scope is not None) and (scope not in self.request.session.scopes):
-                return self.meower.resp(403)
-
-            # Check if session is verified (only for certain types)
-            if (self.request.session.verified != None) and (self.request.session.verified != True):
-                return self.meower.resp(401)
-
-            # Check user
-            userdata = self.meower.db.users.find_one({"_id": self.request.user._id})
-            if (userdata is None) or userdata["security"]["banned"]:
-                self.request.session.delete()
-                return self.meower.resp(401)
-            elif userdata["state"] not in levels:
-                return self.meower.resp(403)

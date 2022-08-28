@@ -15,7 +15,7 @@
             }
             h2 {
                 padding-left: 10px;
-                padding-top: 20px;	
+                padding-top: 20px;
             }
             p {
                 padding: 10px;
@@ -39,9 +39,9 @@
     </head>
     <body>
         <center><img height="70px" src="https://meower.org/assets/logo_black.png"></center><center><div class="email-container">
-        <h2>Reset your password</h2>
-        <p>Dear {{username}},<br><br>You recently requested to reset your password on Meower.<br><br>To set a new password, press the button below.<br><br>
-        <a class="button" href="{{link}}" target="_blank"><span style="color:#fff; text-decoration:none">Reset Password</span></a>
+        <h2>Verify your email</h2>
+        <p>Dear {{username}},<br><br>A Meower user named {{username}} (likely you) has requested to add their account to this email address.<br><br>To verify <a href="mailto:{{email}}">{{email}}</a>, press the button below.<br><br>
+        <a class="button" href="{{link}}" target="_blank"><span style="color:#fff; text-decoration:none">Verify Email</span></a>
         <br><br>
         <em>This link will expire in {{expiration}}.</em>
         <br><br><br>
