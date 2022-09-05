@@ -109,7 +109,7 @@ class Sessions:
                 session["t"] = "refresh"
             return session
 
-    def require_auth(self, auth_type, ttype, standalone=False, scopes=[], allow_bots=True, allow_banned=False, allow_unapproved=False, mod_level=0):
+    def require_auth(self, auth_type, ttypes, standalone=False, scopes=[], abort_on_none=True, allow_banned=False, allow_unapproved=False, mod_level=0):
         # Get token input
         if auth_type == "args": # Get token from URI args
             if "code" in request.args:
@@ -123,7 +123,7 @@ class Sessions:
             token = request.headers.get("Authorization")
 
         # Clean token input
-        if not ((token == "") or (len(token) > 350)):
+        if not ((token == None) or (token == "") or (len(token) > 350)):
             token = token.replace("Bearer ", "").strip()
             if standalone:
                 request.session = meower.get_jwt_standalone(token)
@@ -131,23 +131,28 @@ class Sessions:
                 request.session = meower.get_jwt_session(token)
 
         # Check if session is valid
-        if (request.session is None) or (self.request.session["t"] != ttype):
-            return self.meower.resp(11, msg="Invalid authorization token", abort=True)
+        if (request.session is None) or (self.request.session["t"] not in ttypes):
+            if abort_on_none:
+                return self.meower.resp(11, msg="Invalid authorization token", abort=True)
+            else:
+                return
 
         # Check session scopes
-        if (not standalone) and (set(scopes) == set(request.session["scopes"])):
-            return self.meower.resp(11, msg="Invalid authorization token", abort=True)
+        if not standalone:
+            if not all(scope in request.session["scopes"] for scope in scopes):
+                return self.meower.resp(11, msg="Invalid authorization token", abort=True)
 
         # Check user
         userdata = self.meower.db.users.find_one({"_id": request.session["u"]})
-        if userdata is None or userdata["deleted"] or (userdata["bot"] and (not allow_bots)) or (userdata["permissions"]["mod_lvl"] < mod_level):
-            # Account is deleted, account is bot and bots are not allowed, or is not high enough mod level
+        if userdata is None or userdata["deleted"] or (userdata["permissions"]["mod_lvl"] < mod_level):
+            # Account is deleted, or is not high enough mod level
             return self.meower.resp(11, msg="Invalid authorization token", abort=True)
         elif (not allow_banned) and (userdata["permissions"]["ban_status"] is not None) and (userdata["permissions"]["ban_status"]["expires"] > meower.time()):
             # Account is currently banned
             return self.meower.resp(18, {"expires": request.user.data["permissions"]["ban_status"]["expires"], "reason": request.user.data["permissions"]["ban_status"]["reason"]}, abort=True)
-        elif not (allow_unapproved and request.user.data["guardian"]["approved"]):
+        elif not (allow_unapproved or userdata["guardian"]["approved"]):
             # Account is a child and has not been approved by a guardian
             return meower.resp(105, msg="You need to verify your parent's email or link your parent's account before continuing")
         else:
             request.user = meower.User(meower, userdata)
+            request.user_cache[request.user.id] = request.user

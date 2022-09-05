@@ -3,6 +3,7 @@ from datetime import datetime
 from time import time as unix_epoch
 import time
 from threading import Thread
+import pymongo
 
 bp = Blueprint("supporter_utils", __name__)
 
@@ -19,6 +20,7 @@ class Supporter:
         self.meower.time = self.time
         self.meower.timestamp = self.timestamp
         self.meower.uid = self.uid
+        self.meower.search_items = self.search_items
 
         # Start background task
         background_thread = Thread(target=self.background)
@@ -119,3 +121,44 @@ class Supporter:
 
         # Generate and return uid
         return (str(self.time()) + str(self.meower.sid) + str(self.meower.pid) + str(self.id_increment))
+
+    def search_items(self, collection, query, pipeline_items=None, project=None):
+        if pipeline_items is None:
+            # Create query
+            if "before" in self.request.args: # Search for anything before a given ID
+                query["_id"] = {"$lt": self.request.args.get("before")}
+            elif "after" in self.request.args: # Search for anything after a given ID
+                query["_id"] = {"$gt": self.request.args.get("after")}
+
+            # Get items
+            items = self.meower.db[collection].find(query, projection=project).sort("created", pymongo.DESCENDING).limit(25)
+
+            # Return items
+            return list(items)
+        else:
+            # Init aggegation
+            aggregation = []
+
+            # Add less/greater than to pipeline
+            if "before" in self.request.args: # Search for anything before a given ID
+                aggregation.append({"$match": {"_id": {"$lt": self.request.args.get("before")}}})
+            elif "after" in self.request.args: # Search for anything after a given ID
+                aggregation.append({"$match": {"_id": {"$gt": self.request.args.get("after")}}})
+
+            # Add extra stuff to pipeline to pipeline
+            for item in pipeline_items:
+                aggregation.append(item)
+
+            # Add limit to pipeline
+            aggregation.append({"$limit": 25})
+
+            # Get cursor
+            db_cur = self.meower.db[collection].aggregate(aggregation)
+
+            # Add items from cursor
+            items = []
+            for item in db_cur:
+                items.append(item)
+
+            # Return items
+            return list(items)

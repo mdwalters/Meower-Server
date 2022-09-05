@@ -115,7 +115,7 @@ def login_webauthn(username):
 @bp.route("/verify/totp", methods=["POST"])
 def complete_totp():
     # Check for auth
-    meower.require_auth("header", "totp", standalone=True, allow_bots=False, allow_banned=True, allow_unapproved=True)
+    meower.require_auth("header", ["totp"], standalone=True, allow_banned=True, allow_unapproved=True)
 
     # Get code
     meower.check_for_json([{"i": "code", "t": str, "l_min": 1, "l_max": 8}])
@@ -169,3 +169,18 @@ def reset_password(username):
 
     # Return response
     return meower.resp(100)
+
+@bp.route("/dev/<username>", methods=["POST"])
+def dev_access(username):
+    # Check if dev mode is enabled
+    if meower.jwt_secret != "meower":
+        return meower.resp(103)
+
+    # Get user data
+    user = meower.get_user(username=username, abort_on_fail=True)
+
+    # Create session
+    access_token, refresh_token, access_expires, refresh_expires = gen_session(user.id)
+
+    # Return session
+    return meower.resp(100, {"access_token": access_token, "refresh_token": refresh_token, "access_expires": access_expires, "refresh_expires": refresh_expires})

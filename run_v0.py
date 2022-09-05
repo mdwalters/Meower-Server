@@ -16,12 +16,13 @@ meower.sid = os.getenv("SERVER_ID")
 meower.pid = os.getpid()
 
 # Test JWT secret
-meower.jwt_secret = "abc"
+meower.jwt_secret = "meower"
 
 @meower.before_request
 def before_request_stuff():
 	request.session = None
 	request.user = None
+	request.user_cache = {}
 
 # Get blueprints list
 with open("blueprints.json", "r") as f:

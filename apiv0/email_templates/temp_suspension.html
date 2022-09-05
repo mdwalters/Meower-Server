@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            .email-container {
+                width: 600px;	
+                border-radius: 14px;
+                background-color: #E8F3FD;
+                padding: 0px 20px;
+                border: none; 	
+                color: #000;
+                font-size: 20px;
+                text-align: left 
+            }
+            .message-container {
+                width: 560px;	
+                border-radius: 14px;
+                background-color: #fff;
+                padding: 20px 20px;
+                border: none;
+                font-family: simvoni; 	
+                color: #000;
+                font-size: 20px;
+                text-align: left 
+            }
+            h2 {
+                padding-left: 10px;
+                padding-top: 20px;
+            }
+            p {
+                padding: 10px;
+                padding-bottom: 20px;
+            }
+            img {
+                margin-top: 20px; margin-bottom:10px;
+            }
+            .button {
+                border-radius: 16px;
+                background-color: #F9A637;
+                padding: 10px 50px 10px 50px;
+                border: none;
+                font-size: 20px;
+                text-decoration: none;
+                color: #fff;
+                margin-right: 15px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <center><img height="70px" src="https://meower.org/assets/logo_black.png"></center><center><div class="email-container">
+        <h2>Notice of temporary restriction</h2>
+        <p>Dear {{username}},<br><br>The Meower moderation team has decided to temporarily restrict your account for 24 hours due to you being in violation of Meower's terms of service.
+        <br><br>Reason for this restriction:<div class="message-container">
+            {{reason}}&nbsp; &nbsp; &nbsp;&nbsp;
+        </div><br><br>
+        Your account is now in read-only mode. You may not post, direct message or interact with posts until the restriction expires.<br><br>Please do not try creating new accounts or otherwise evade this restriction. This will result in termination of your account.<br><br>If you think this is a mistake, please click the button below to be able to appeal.<br><br>
+        <a class="button" href="{{link}}" target="_blank"><span style="color:#fff; text-decoration:none">Appeal Restriction</span></a>
+        <br><br><br>
+        - Meower Media Co.</p>
+        </div></center><center><p><a href="https://meower.org/">Meower</a> is a free, open-source, and non-profit social media platform, created by Meower Media Co.<br>
+        <br>
+        If you have questions about Meower or this email, feel free to contact us at <a href="mailto:support@meower.org">support@meower.org</a><br>
+        <br>
+        <a href="https://meower.org/legal">Legal info</a> | <a href="https://meower.org">Meower</a> </p></center></center>
+    </body>
+</html>

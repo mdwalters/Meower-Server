@@ -11,6 +11,8 @@ class Users:
         self.meower = meower
         self.request = request
 
+        self.meower.deleted_user = None
+
         # Add functions to Meower class
         self.meower.create_user = self.create_user
         self.meower.get_userid = self.get_userid
@@ -40,67 +42,45 @@ class Users:
             "_id": id,
             "username": username,
             "lower_username": username.lower(),
-            "bot": bot,
-            "last_ip": None,
             "created": created,
-            "delete_after": None,
-            "config": {
-                "theme": "orange",
-                "dark": False,
-                "sfx": True,
-                "bgm": {
-                    "enabled": True,
-                    "data": None
-                },
-                "debug": False
-            },
-            "profile": {
-                "pfp": "",
-                "quote": "",
-                "status": 1,
-                "badges": badges,
-                "social_links": [],
-                "last_seen": None
-            },
-            "permissions": {
-                "ban_status": None,
-                "supporter": False,
-                "mod_lvl": 0
-            },
-            "authorized_oauth": {},
-            "security": {
-                "email": None,
-                "password": password,
-                "webauthn": [],
-                "totp": None
-            },
-            "privacy": {
-                "private": False,
-                "follow_requests": 1, # 0: Approval required, 1: Auto accept, 2: Auto deny
-                "dm_requests": 0
-            },
-            "relations": {
-                "following": [],
-                "follow_requests": [],
-                "blocked": []
-            },
-            "guardian": {
-                "child": child,
-                "approved": (child == False),
-                "linked_guardian": None,
-                "account_disabled": False,
-                "filter_level": 0,
-                "user_whitelist": False,
-                "community_whitelist": False,
-                "groups_enabled": True,
-                "encrypted_chats": True,
-                "allowed_users": [],
-                "blocked_users": [],
-                "allowed_communities": [],
-                "blocked_communities": [],
-            }
+            "bot": bot,
+            "child": child,
+            "linked": None,
+            "status": 1,
+            "last_seen": None,
+            "pfp": "",
+            "quote": "",
+            "badges": badges,
+            "social_links": [],
         }
+
+        # Create auth data
+        auth_data = {
+            "_id": id,
+            "email": None,
+            "approved": (not child),
+            "password": password,
+            "webauthn": [],
+            "totp": None
+        }
+
+        # Create config
+        config = {
+            "_id": id,
+            "theme": {},
+            "sfx": True,
+            "bgm": "",
+            "debug": False,
+            "filter": child,
+            "private": False,
+            "follow_requests": 1,
+            "dm_requests": 0
+        }
+
+        # Add to DB
         self.meower.db.users.insert_one(userdata)
+        self.meower.db.auth_data.insert_one(auth_data)
+        self.meower.db.config_data.insert_one(config)
 
         return userdata
 
@@ -116,6 +96,9 @@ class Users:
             return userdata["_id"]
 
     def get_user(self, username=None, userid=None, abort_on_fail=False, deleted_on_fail=True):
+        if userid in self.request.user_cache:
+            return self.request.user_cache[userid]
+
         if (username is not None) and (len(username) < 20):
             userdata = self.meower.db.users.find_one({"lower_username": username.lower()})
         elif userid is not None:
@@ -126,11 +109,15 @@ class Users:
         if (userdata is None) and abort_on_fail:
             return self.meower.resp(103, msg="Invalid username", abort=True)
         elif (userdata is None) and deleted_on_fail:
-            userdata = self.meower.db.users.find_one({"_id": "deleted"})
+            if self.meower.deleted_user is None:
+                self.meower.deleted_user = self.meower.db.users.find_one({"_id": "deleted"})
+            return self.meower.User(self.meower, self.meower.deleted_user)
         
         # Return user object
         if userdata is not None:
-            return self.meower.User(self.meower, userdata)
+            user = self.meower.User(self.meower, userdata)
+            self.request.user_cache[user.id] = user
+            return user
         else:
             return None
 
@@ -253,12 +240,13 @@ class Users:
 class User:
     def __init__(self, meower, data):
         self.id = data["_id"]
+        self.username = data["username"]
         self.meower = meower # Have to add this just for **1** value AAAAAAAAAAAAAAAAAAA
         self.data = data
 
     def client(self):
         return {
-            "id": self.data["_id"],
+            "id": self.id,
             "username": self.data["username"],
             "bot": (self.data["bot"] is not None),
             "created": self.data["created"],
@@ -269,9 +257,9 @@ class User:
             "guardian": self.data["guardian"]
         }
 
-    def public(self):
+    def profile(self):
         return {
-            "id": self.data["_id"],
+            "id": self.id,
             "username": self.data["username"],
             "bot": (self.data["bot"] is not None),
             "banned": (self.data["permissions"]["ban_status"] is not None),
@@ -284,13 +272,21 @@ class User:
                 "last_seen": self.data["profile"]["last_seen"]
             },
             "private": self.data["privacy"]["private"],
-            "followers": self.meower.db.users.count_documents({"relations.following": {"$all": [self.data["_id"]]}}),
+            "followers": self.meower.db.users.count_documents({"relations.following": {"$all": [self.id]}}),
             "following": len(self.data["relations"]["following"])
+        }
+
+    def post(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "pfp": self.data["profile"]["pfp"],
+            "bot": (self.data["bot"] is not None)
         }
 
     def pre_login(self):
         return {
-            "id": self.data["_id"],
+            "id": self.id,
             "username": self.data["username"],
             "bot": (self.data["bot"] is not None),
             "created": self.data["created"],
@@ -305,7 +301,7 @@ class User:
     def legacy_client(self):
         return {
             "_id": self.data["username"],
-            "uuid": self.data["_id"],
+            "uuid": self.id,
             "lower_username": self.data["lower_username"],
             "created": self.data["created"],
             "pfp_data": 1,
@@ -326,7 +322,7 @@ class User:
     def legacy_public(self):
         return {
             "_id": self.data["username"],
-            "uuid": self.data["_id"],
+            "uuid": self.id,
             "lower_username": self.data["lower_username"],
             "created": self.data["created"],
             "pfp_data": 1,

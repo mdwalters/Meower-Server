@@ -1,6 +1,12 @@
 [
     {
-        "module": "apiv0.respond",
+        "module": "apiv0.websocket.meower",
+        "prefix": null,
+        "classes": ["WebSocket"],
+        "templates": []
+    },
+    {
+        "module": "apiv0.utils.respond",
         "prefix": null,
         "classes": ["Respond"],
         "templates": []
@@ -42,6 +48,12 @@
         "templates": []
     },
     {
+        "module": "apiv0.utils.posts",
+        "prefix": null,
+        "classes": ["Posts"],
+        "templates": ["Post"]
+    },
+    {
         "module": "apiv0.me.auth",
         "prefix": "/v0/me",
         "classes": [],
@@ -50,6 +62,24 @@
     {
         "module": "apiv0.oauth2.authorize",
         "prefix": "/v0/oauth2/authorize",
+        "classes": [],
+        "templates": []
+    },
+    {
+        "module": "apiv0.oauth2.apps",
+        "prefix": "/v0/oauth2/apps",
+        "classes": [],
+        "templates": []
+    },
+    {
+        "module": "apiv0.home",
+        "prefix": "/v0/home",
+        "classes": [],
+        "templates": []
+    },
+    {
+        "module": "apiv0.users",
+        "prefix": "/v0/users",
         "classes": [],
         "templates": []
     }
