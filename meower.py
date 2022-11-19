@@ -3,10 +3,7 @@ import uuid
 import secrets
 import pymongo
 import os
-from dotenv import load_dotenv
 import requests
-
-load_dotenv()  # take environment variables from .env.
 
 class Meower:
     def __init__(self, cl, supporter, logger, errorhandler, accounts, files):
@@ -1302,9 +1299,6 @@ class Meower:
                 # Post not found
                 self.returnCode(client = client, code = "IDNotFound", listener_detected = listener_detected, listener_id = listener_id)
         else:
-
-
-
             # Not authenticated
             self.returnCode(client = client, code = "Refused", listener_detected = listener_detected, listener_id = listener_id)
     

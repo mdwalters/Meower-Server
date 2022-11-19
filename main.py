@@ -4,7 +4,9 @@ from security import Security
 from files import Files
 from meower import Meower
 from rest_api import app as rest_api_app
+
 from threading import Thread
+from dotenv import load_dotenv
 
 """
 
@@ -25,6 +27,9 @@ Dependencies:
 
 class Main:
     def __init__(self, debug=False):
+        # Load environment variables
+        load_dotenv()
+
         # Initalize libraries
         self.cl = CloudLink(debug=debug) # CloudLink Server
         self.supporter = Supporter( # Support functionality

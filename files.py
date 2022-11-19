@@ -1,8 +1,8 @@
 from pymongo import MongoClient
+from montydb import MontyClient
 import time
+import os
 from uuid import uuid4
-
-from requests import delete
 
 """
 
@@ -17,16 +17,18 @@ class Files:
     def __init__(self, logger, errorhandler):
         self.log = logger
         self.errorhandler = errorhandler
-
-        mongo_ip = "mongodb://localhost:27017"
-        self.log("Connecting to database '{0}'\n(If it seems like the server is stuck or the server randomly crashes, it probably means it couldn't connect to the database)".format(mongo_ip))
-        self.db = MongoClient(mongo_ip)["meowerserver"]
-
-        # Check connection status
-        if self.db.client.get_database("meowerserver") == None:
-            self.log("Failed to connect to MongoDB database!")
+    
+        # Connect to database
+        self.log("Connecting to database '{0}'...".format(os.getenv("DB_URI", "mongodb://localhost:27017")))
+        if os.getenv("DB_TYPE", "mongo"):
+            self.db = MongoClient(os.getenv("DB_URI", "mongodb://localhost:27017"))["meowerserver"]
+            try:
+                self.db.command("ping")
+            except:
+                self.log(f"Failed to connect to database: {self.errorhandler()}")
+                exit()
         else:
-            self.log("Connected to database")
+            self.db = MontyClient(os.getenv("DB_URI", "meowerdb"))["meowerserver"]
 
         # Create database collections
         for item in ["config", "usersv0", "usersv1", "netlog", "posts", "chats", "reports"]:
@@ -34,14 +36,15 @@ class Files:
                 self.log("Creating collection {0}".format(item))
                 self.db.create_collection(name=item)
         
-        # Create collection indexes
-        self.db["netlog"].create_index("users")
-        self.db["usersv0"].create_index("lower_username")
-        self.db["posts"].create_index("u")
-        self.db["posts"].create_index("post_origin")
-        self.db["posts"].create_index("type")
-        self.db["posts"].create_index("p")
-        self.db["chats"].create_index("members")
+        # Create collection indexes (MontyDB doesn't support indexes)
+        if os.getenv("DB_TYPE", "mongo"):
+            self.db["netlog"].create_index("users")
+            self.db["usersv0"].create_index("lower_username")
+            self.db["posts"].create_index("u")
+            self.db["posts"].create_index("post_origin")
+            self.db["posts"].create_index("type")
+            self.db["posts"].create_index("p")
+            self.db["chats"].create_index("members")
         
         # Create reserved accounts
         for username in ["Server", "Deleted", "Meower", "Admin", "username"]:
