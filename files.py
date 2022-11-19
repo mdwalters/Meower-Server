@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from montydb import MontyClient
+from tinymongo import TinyMongoClient
 import time
 import os
 from uuid import uuid4
@@ -28,8 +28,8 @@ class Files:
                 self.log(f"Failed to connect to database: {self.errorhandler()}")
                 exit()
         else:
-            self.log("Connecting to database '{0}'...".format(os.getenv("DB_URI", "meowerdb")))
-            self.db = MontyClient(os.getenv("DB_URI", "meowerdb"))["meowerserver"]
+            self.log("Connecting to TinyMongo database...")
+            self.db = TinyMongoClient()["meowerdb"]
 
         # Create database collections
         for item in ["config", "usersv0", "usersv1", "netlog", "posts", "chats", "reports"]:
@@ -37,15 +37,14 @@ class Files:
                 self.log("Creating collection {0}".format(item))
                 self.db.create_collection(name=item)
         
-        # Create collection indexes (MontyDB doesn't support indexes)
-        if os.getenv("DB_TYPE", "mongo") == "mongo":
-            self.db["netlog"].create_index("users")
-            self.db["usersv0"].create_index("lower_username")
-            self.db["posts"].create_index("u")
-            self.db["posts"].create_index("post_origin")
-            self.db["posts"].create_index("type")
-            self.db["posts"].create_index("p")
-            self.db["chats"].create_index("members")
+        # Create collection indexes
+        self.db["netlog"].create_index("users")
+        self.db["usersv0"].create_index("lower_username")
+        self.db["posts"].create_index("u")
+        self.db["posts"].create_index("post_origin")
+        self.db["posts"].create_index("type")
+        self.db["posts"].create_index("p")
+        self.db["chats"].create_index("members")
         
         # Create reserved accounts
         for username in ["Server", "Deleted", "Meower", "Admin", "username"]:
