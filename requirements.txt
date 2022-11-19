@@ -6,3 +6,4 @@ uuid
 flask
 pymongo
 python-dotenv
+montydb

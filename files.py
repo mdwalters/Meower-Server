@@ -19,8 +19,8 @@ class Files:
         self.errorhandler = errorhandler
     
         # Connect to database
-        self.log("Connecting to database '{0}'...".format(os.getenv("DB_URI", "mongodb://localhost:27017")))
-        if os.getenv("DB_TYPE", "mongo"):
+        if os.getenv("DB_TYPE", "mongo") == "mongo":
+            self.log("Connecting to database '{0}'...".format(os.getenv("DB_URI", "mongodb://localhost:27017")))
             self.db = MongoClient(os.getenv("DB_URI", "mongodb://localhost:27017"))["meowerserver"]
             try:
                 self.db.command("ping")
@@ -28,6 +28,7 @@ class Files:
                 self.log(f"Failed to connect to database: {self.errorhandler()}")
                 exit()
         else:
+            self.log("Connecting to database '{0}'...".format(os.getenv("DB_URI", "meowerdb")))
             self.db = MontyClient(os.getenv("DB_URI", "meowerdb"))["meowerserver"]
 
         # Create database collections
@@ -37,7 +38,7 @@ class Files:
                 self.db.create_collection(name=item)
         
         # Create collection indexes (MontyDB doesn't support indexes)
-        if os.getenv("DB_TYPE", "mongo"):
+        if os.getenv("DB_TYPE", "mongo") == "mongo":
             self.db["netlog"].create_index("users")
             self.db["usersv0"].create_index("lower_username")
             self.db["posts"].create_index("u")
